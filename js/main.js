@@ -1,0 +1,129 @@
+/*
+ * Main Script File.
+ * ©abuco 2022
+ */
+import * as WorkerHelper from "./workerHelper.js";
+(function () {
+    const paramsForm = document.getElementById("params");
+    const startButton = document.getElementById('start');
+    const canvas = document.getElementById("main-canvas");
+    const canvasContext = canvas.getContext("2d");
+    const output = document.getElementById("output");
+    const worker = new Worker("js/worker.js", { type: "module" });
+    class SimulationSession {
+        constructor() {
+            this.lineColour = { r: 0, g: 0, b: 0xff, a: 0.2 };
+            this.trialCount = 0;
+            this.scale = { x: 100, y: 8 };
+        }
+        init() {
+            const cxt = canvasContext;
+            const targetX = this.scale.x * 7;
+            cxt.strokeStyle = "orangered";
+            cxt.lineWidth = 2;
+            cxt.beginPath();
+            cxt.moveTo(targetX, 0);
+            cxt.lineTo(targetX, canvas.height);
+            cxt.stroke();
+            cxt.font = "12px Arial";
+            cxt.fillText("t = 7", targetX + 5, 24);
+        }
+        processMessage(message) {
+            if (message.type === "update") {
+                return this.updateCanvas(message);
+            }
+            if (message.type === "done") {
+                return this.completeSimulation(message);
+            }
+        }
+        updateCanvas(message) {
+            const cxt = canvasContext;
+            const plot = {
+                x: message.result.t * this.scale.x,
+                y: canvas.height - message.result.x * this.scale.y,
+            };
+            cxt.lineTo(plot.x, plot.y);
+            if (message.result.x < 0) {
+                cxt.stroke();
+                cxt.beginPath();
+                cxt.moveTo(0, canvas.height);
+                this.trialCount++;
+                log(`Trial #${this.trialCount}: ` +
+                    `v0 = ${message.vInit} m/s, time = ${message.result.t} s.`);
+            }
+        }
+        completeSimulation(message) {
+            canvasContext.beginPath();
+            canvasContext.moveTo(0, 0);
+            log(`[Simulation completed at ${new Date()}]`);
+            log("Result: -------------------------------");
+            log(`Initial Velocity = ${message.vInit}±${message.uncertainty} m/s`);
+            log(`Time of Flight: ${message.timeOfFlight} s`);
+            log(`Final Step Leap: |${message.finalLeap}| m/s`);
+        }
+        reset() {
+            const c = this.lineColour;
+            const ctx = canvasContext;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            this.trialCount = 0;
+            this.init();
+            ctx.strokeStyle = `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+        }
+    }
+    const simulationSession = new SimulationSession();
+    paramsForm.onsubmit = ((e) => {
+        e.preventDefault();
+        return false;
+    });
+    startButton.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!paramsForm.reportValidity()) {
+            return false;
+        }
+        function getFormElement(name) {
+            return paramsForm.elements.namedItem(name);
+        }
+        ;
+        const parameters = {
+            delta: parseFloat(getFormElement("dt").value),
+            targetTime: parseFloat(getFormElement("t").value),
+            stepsPerTick: parseInt(getFormElement("steps-per-tick").value),
+            initialVInit: parseFloat(getFormElement("v-init").value),
+            maxResultRange: parseFloat(getFormElement("max-v-range").value),
+            initialLeap: parseFloat(getFormElement("initial-leap").value),
+            leapReductionFactor: parseFloat(getFormElement("leap-factor").value)
+        };
+        for (const key in parameters) {
+            if (Object.prototype.hasOwnProperty.call(parameters, key)) {
+                const value = parameters[key];
+                if (!value) {
+                    // Zero or falsey...
+                    alert(`Invalid value for [${key}]: ${value}!`);
+                    return false;
+                }
+            }
+        }
+        if (parameters.delta > 0.1 && parameters.maxResultRange < parameters.delta * 4) {
+            alert("Too small an uncertainty range for this delta t value!");
+            return false;
+        }
+        start(parameters);
+    });
+    WorkerHelper.addWorkerMessageListener(worker, (message) => void simulationSession.processMessage(message));
+    simulationSession.init();
+    return;
+    function log(message) {
+        output.appendChild(document.createTextNode(message + '\n'));
+    }
+    function start(parameters) {
+        log(`[Started simulation at ${new Date()}]`);
+        simulationSession.reset();
+        WorkerHelper.postWorkerMessage(worker, {
+            type: "start",
+            parameters
+        });
+    }
+})();
+//# sourceMappingURL=main.js.map

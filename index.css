@@ -1,0 +1,52 @@
+/* Main Stylesheet */
+
+main canvas {
+    margin: 2em 3em;
+    border: 1px solid gray;
+}
+
+.params {
+    margin: 1.5em 2em;
+}
+
+.params input {
+    margin-left: 1.5em;
+    margin-bottom: 1em;
+
+    font-size: inherit;
+}
+
+.params button {
+    cursor: pointer;
+
+    font-size: larger;
+}
+
+.output {
+    display: block;
+
+    border: none;
+    border-radius: 0.5em;
+
+    background-color: lightgray;
+    overflow-y: auto;
+
+    height: 16em;
+    margin: 20px 10vw;
+
+    padding: 1em;
+}
+
+footer {
+    margin: 1em;
+
+    text-align: right;
+    font-size: smaller;
+
+    color: gray;
+}
+
+footer a {
+    color: inherit;
+}
+
